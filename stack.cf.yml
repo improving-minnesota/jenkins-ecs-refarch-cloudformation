@@ -1,0 +1,94 @@
+Description: >
+    This template builds from the github.com/awslabs/ecs-refarch-cloudformation
+    project and adds additional configuration to deploy the project as Jenkins.
+    Last Modified: 19th February 2018
+    Author: Chris W. Gerber <christopher.gerber@objectpartners.com>
+
+Parameters:
+
+    JenkinsRepo:
+        Description: Please provide the image that Jenkins should use.
+        Type: String
+        Default: ''
+
+    AdminUsername:
+        Description: Please provide the ECS Cluster ID that this service should run on
+        Type: String
+        NoEcho: true
+
+    AdminPassword:
+        Description: Please provide the ECS Cluster ID that this service should run on
+        Type: String
+        NoEcho: true
+
+Conditions:
+
+    UseEcrJenkins: !Equals [ !Ref JenkinsRepo, '' ]
+
+Resources:
+
+    VPC:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: https://s3.amazonaws.com/jenkins-ecs-refarch-cloudformation/infrastructure/vpc.yml
+            Parameters:
+                EnvironmentName:    !Ref AWS::StackName
+                VpcCIDR:            10.180.0.0/16
+                PublicSubnet1CIDR:  10.180.8.0/21
+                PublicSubnet2CIDR:  10.180.16.0/21
+
+    SecurityGroups:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: https://s3.amazonaws.com/jenkins-ecs-refarch-cloudformation/infrastructure/security-groups.yml
+            Parameters:
+                EnvironmentName: !Ref AWS::StackName
+                VPC: !GetAtt VPC.Outputs.VPC
+
+    ELB:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: https://s3.amazonaws.com/jenkins-ecs-refarch-cloudformation/infrastructure/load-balancer.yml
+            Parameters:
+                EnvironmentName: !Ref AWS::StackName
+                VPC: !GetAtt VPC.Outputs.VPC
+                Subnets: !GetAtt VPC.Outputs.PublicSubnets
+                SecurityGroup: !GetAtt SecurityGroups.Outputs.LoadBalancerSecurityGroup
+
+    ECS:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: https://s3.amazonaws.com/jenkins-ecs-refarch-cloudformation/infrastructure/ecs-cluster.yml
+            Parameters:
+                EnvironmentName: !Ref AWS::StackName
+                InstanceType: t2.medium
+                ClusterSize: 1
+                VPC: !GetAtt VPC.Outputs.VPC
+                SecurityGroup: !GetAtt SecurityGroups.Outputs.ECSHostSecurityGroup
+                Subnets: !GetAtt VPC.Outputs.PublicSubnets
+
+    ECR:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: https://s3.amazonaws.com/jenkins-ecs-refarch-cloudformation/infrastructure/ecr-repository.yml
+            Parameters:
+                EnvironmentName: !Ref AWS::StackName
+                RepositoryName: 'jenkins'
+
+    Jenkins:
+        Type: AWS::CloudFormation::Stack
+        Properties:
+            TemplateURL: https://s3.amazonaws.com/jenkins-ecs-refarch-cloudformation/jenkins/jenkins.yml
+            Parameters:
+                VPC: !GetAtt VPC.Outputs.VPC
+                Cluster: !GetAtt ECS.Outputs.Cluster
+                JenkinsImage:
+                    !If
+                        - UseEcrJenkins
+                        - !Sub ${ECR.Outputs.RepositoryUri}:1.0.0
+                        - !Ref JenkinsRepo
+                LoadBalancerUrl: !GetAtt ELB.Outputs.LoadBalancerUrl
+                Listener: !GetAtt ELB.Outputs.Listener
+                ECSServiceAutoScalingRoleARN: !GetAtt ECS.Outputs.ECSServiceAutoScalingRoleArn
+                AdminUsername: !Ref AdminUsername
+                AdminPassword: !Ref AdminPassword

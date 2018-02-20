@@ -1,0 +1,14 @@
+[
+    {
+        "ParameterKey": "AdminUsername",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "AdminPassword",
+        "ParameterValue": ""
+    },
+    {
+        "ParameterKey": "JenkinsRepo",
+        "ParameterValue": ""
+    }
+]

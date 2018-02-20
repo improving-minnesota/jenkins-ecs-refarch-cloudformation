@@ -1,0 +1,29 @@
+Description:  This template creates an ECR repository.
+
+Parameters:
+
+    EnvironmentName:
+        Description: An environment name that will be prefixed to resource names
+        Type: String
+
+    RepositoryName:
+        Description: Name of the repository.
+        Type: String
+
+Resources:
+
+    # This security group defines who/where is allowed to access the ECS hosts directly.
+    # By default we're just allowing access from the load balancer.  If you want to SSH
+    # into the hosts, or expose non-load balanced services you can open their ports here.
+    EcrRepository:
+        Type: AWS::ECR::Repository
+        Properties:
+            RepositoryName: !Sub ${EnvironmentName}/${RepositoryName}
+            # LifecyclePolicy: LifecyclePolicy
+            # RepositoryPolicyText: JSON object
+
+Outputs:
+
+    RepositoryUri:
+        Description: URI or Ecr Repository.
+        Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EnvironmentName}/${RepositoryName}

@@ -1,0 +1,6 @@
+ansicolor:latest
+amazon-ecr:latest
+amazon-ecs:latest
+aws-java-sdk:latest
+git:latest
+matrix-auth:latest
